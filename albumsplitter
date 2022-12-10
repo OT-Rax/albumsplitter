@@ -1,0 +1,36 @@
+#!/bin/bash
+if [ $# != 2 ];
+then
+	$(echo "Arguments required: 1:album, 2:tracksfile")
+else 
+	mapfile -t titles <<< $(grep -o "\s[^:]\{1,\}" "$2")
+	seeks=($(grep -o "[0-9:]\{2,\}" "$2"))
+	echo "Splitting $1 into ${#titles[@]} tracks"
+
+	extension=${1##*.}
+	directory=$(cd "$(dirname "$1")"; pwd -P)
+	inputfile="$directory/$1"
+
+	for (( n=0; n<${#seeks[@]}; n++ ));
+	do
+		track_number=""
+		if [ 8 -ge $n ]
+		then
+			track_number="0$(($n+1))"
+		else
+			track_number=$(($n+1))
+		fi
+
+		if [ $n != $((${#seeks[@]}-1)) ]
+		then
+			seektime=${seeks[$n]}
+			totime=${seeks[$n+1]}
+			echo "From $seektime to $totime - Track $track_number${titles[$n]}"
+			$(ffmpeg -nostdin -y -loglevel 8 -ss $seektime -to $totime -i "$inputfile" -c copy "$directory/$track_number${titles[$n]}.$extension")
+		else
+			seektime=${seeks[$n]}
+			echo "From $seektime to the end - Track $track_number${titles[$n]}"
+			$(ffmpeg -nostdin -y -loglevel 8 -ss $seektime -i "$inputfile" -c copy "$directory/$track_number${titles[$n]}.$extension")
+		fi
+	done
+fi
